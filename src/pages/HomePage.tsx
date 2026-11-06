@@ -1,25 +1,26 @@
-import { type FC, useEffect, useState } from 'react'
+import { type FC, useEffect } from 'react'
 import { Button, Card, Spinner } from 'react-bootstrap'
 import { useNavigate } from 'react-router-dom'
+import { MockNotice } from '../components/MockNotice'
 import { ROUTES } from '../Routes'
-import { type Comet, getComets } from '../modules/cometsApi'
 import { formatNum, yearsWord } from '../modules/format'
+import { fetchComets } from '../store/cometsSlice'
+import { useAppDispatch, useAppSelector } from '../store/hooks'
 
 // Главная: о приложении, краткая сводка по каталогу и переходы на ленту и плитку
 export const HomePage: FC = () => {
-  const [comets, setComets] = useState<Comet[] | null>(null)
+  const dispatch = useAppDispatch()
   const navigate = useNavigate()
+  const { list, listLoading, isMock } = useAppSelector((state) => state.comets)
+  const login = useAppSelector((state) => state.user.login)
 
+  // Сводка — по всему каталогу, без фильтра плитки
   useEffect(() => {
-    let cancelled = false
-    getComets().then((result) => {
-      if (!cancelled) setComets(result)
-    })
-    return () => {
-      cancelled = true
-    }
-  }, [])
+    const request = dispatch(fetchComets({ ignoreFilter: true }))
+    return () => request.abort()
+  }, [dispatch])
 
+  const comets = listLoading ? null : list
   const periods = (comets ?? []).map((comet) => comet.orbital_period ?? 0)
   const shortest = periods.length ? Math.min(...periods) : null
   const longest = periods.length ? Math.max(...periods) : null
@@ -33,7 +34,10 @@ export const HomePage: FC = () => {
           Каталог периодических комет: видео, период обращения и эксцентриситет орбиты. По координатам кометы на
           небесной сфере рассчитывается её расстояние от Солнца.
         </p>
+        {login && <p className="hero__user">Вы вошли как {login}</p>}
       </section>
+
+      {isMock && <MockNotice />}
 
       <Card className="panel">
         <Card.Body>

@@ -3,7 +3,8 @@ import type { Comet } from './cometsApi'
 // Mock-коллекция комет: те же данные, что в db/seed.sql бэкенда, в формате ответа API.
 // Ссылки на фото и видео ведут в Minio. У 103P/Хартли поля фото и видео пустые,
 // у 55P/Темпеля — Туттля пустое видео: для них показываются фото и видео по умолчанию.
-const MINIO_URL = 'http://localhost:9000/comets'
+// Через прокси Vite (/s3 → Minio http://localhost:9000), как и адреса из ответов API
+const MINIO_URL = '/s3/comets'
 
 const media = (name: string) => (name ? `${MINIO_URL}/${name}` : '')
 

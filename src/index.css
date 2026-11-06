@@ -299,11 +299,20 @@ a:hover { color: var(--color-hover); }
     display: flex;
     flex-direction: column;
     align-items: center;
+    min-height: 54px;
+    padding: 0;
+    border: none;
+    background: none;
     color: #FFFFFF;
     font-size: 13px;
 }
 
-.feed__like svg { width: 34px; height: 34px; fill: var(--color-accent); }
+/* Лайк: контур — не поставлен, заливка — поставлен; у гостя кнопка неактивна */
+.feed__like svg { width: 34px; height: 34px; fill: transparent; stroke: var(--color-accent); stroke-width: 2; }
+.feed__like--active svg { fill: var(--color-accent); }
+.feed__like:not(:disabled):hover svg { stroke: var(--color-hover); }
+.feed__like:disabled { cursor: default; }
+.feed__like .spinner-border { width: 34px; height: 34px; color: var(--color-accent); }
 
 .feed__next {
     display: flex;
@@ -537,3 +546,75 @@ a:hover { color: var(--color-hover); }
     background: var(--color-card);
     text-align: center;
 }
+
+/* ЛР6: вход, добавление, удаление, mock */
+.hero__user {
+    margin: -6px 0 14px;
+    color: var(--color-accent);
+}
+
+.mock-notice {
+    margin: 0 0 12px;
+    padding: 8px 12px;
+    border-left: 3px solid var(--color-accent);
+    border-radius: var(--radius);
+    background: var(--color-card);
+    font-size: 14px;
+}
+
+.feed__notice {
+    position: absolute;
+    top: 12px;
+    left: 12px;
+    right: 12px;
+    z-index: 2;
+    background: rgba(58, 58, 58, 0.9);
+}
+
+.btn.button.tile__delete {
+    width: 100%;
+    margin-top: 8px;
+    padding: 4px 12px;
+    background: #B23B3B;
+    font-size: 14px;
+}
+
+.btn.button.tile__delete:hover,
+.btn.button.tile__delete:focus-visible { background: #8E2A2A; }
+
+.card.tile.tile--busy { opacity: 0.6; cursor: progress; }
+
+.form {
+    padding: 16px;
+    border-radius: var(--radius);
+    background: var(--color-card);
+}
+
+.form fieldset { display: contents; }
+
+.form__field { margin-bottom: 14px; }
+.form__field .form-label { margin-bottom: 4px; font-size: 14px; }
+
+.form__row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+}
+
+.form-control.form__input {
+    border: 1px solid #555555;
+    background: var(--color-input);
+    color: #F6F6F6;
+}
+
+.form-control.form__input:focus {
+    border-color: var(--color-input-focus);
+    background: var(--color-input);
+    color: #F6F6F6;
+    box-shadow: none;
+}
+
+.form-control.form__input::placeholder { color: #8A8A8A; }
+.form-control.form__input:disabled { opacity: 0.6; }
+
+.form__error.alert { padding: 8px 12px; font-size: 14px; }
