@@ -1,13 +1,32 @@
+import { useState } from 'react'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { AppLayout } from './AppLayout'
 import { ROUTES } from './Routes'
-import { AddPage } from './pages/AddPage'
+import { AddPage, type DraftEdits } from './pages/AddPage'
 import { CometsPage } from './pages/CometsPage'
 import { FeedPage } from './pages/FeedPage'
 import { HomePage } from './pages/HomePage'
 import { LoginPage } from './pages/LoginPage'
+import { useAppSelector } from './store/hooks'
 
 function App() {
+  const login = useAppSelector((state) => state.user.login)
+  // Поля и File живут в приложении, пока пользователь переключает страницы.
+  const [draftEdits, setDraftEdits] = useState<(DraftEdits & { login: string }) | null>(null)
+  if (draftEdits && draftEdits.login !== login) setDraftEdits(null)
+
+  const updateDraft = (id: number, changes: DraftEdits['fields']) => {
+    if (!login) return
+    setDraftEdits((current) => ({
+      id,
+      login,
+      fields: {
+        ...(current?.id === id && current.login === login ? current.fields : {}),
+        ...changes,
+      },
+    }))
+  }
+
   return (
     <BrowserRouter>
       <Routes>
@@ -16,7 +35,16 @@ function App() {
           <Route path={ROUTES.FEED} element={<FeedPage />} />
           <Route path={`${ROUTES.FEED}/:id`} element={<FeedPage />} />
           <Route path={ROUTES.COMETS} element={<CometsPage />} />
-          <Route path={ROUTES.ADD} element={<AddPage />} />
+          <Route
+            path={ROUTES.ADD}
+            element={
+              <AddPage
+                draftEdits={draftEdits}
+                onDraftEdit={updateDraft}
+                onDraftPublished={(id) => setDraftEdits((current) => current?.id === id ? null : current)}
+              />
+            }
+          />
           <Route path={ROUTES.LOGIN} element={<LoginPage />} />
           {/* Несуществующий адрес — на ленту, как в SSR-страницах бэкенда */}
           <Route path="*" element={<Navigate to={ROUTES.FEED} replace />} />

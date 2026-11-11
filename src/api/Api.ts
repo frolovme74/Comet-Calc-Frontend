@@ -94,12 +94,6 @@ export interface ApiMessageResponse {
   status?: string;
 }
 
-export interface ApiPublishCometRequest {
-  comet_description?: string;
-  orbit_eccentricity?: number;
-  orbital_period?: number;
-}
-
 export interface ApiRegisterRequest {
   full_name?: string;
   login?: string;
@@ -325,11 +319,11 @@ export class Api<
       }),
 
     /**
-     * @description Создаёт черновик, создатель — текущий пользователь из токена. Файлы загружаются в Minio, в БД сохраняются их имена.
+     * @description Создаёт черновик по названию. При отсутствии файлов интерфейс использует стандартные фото и видео.
      *
      * @tags Кометы
      * @name CometsCreate
-     * @summary Добавление кометы
+     * @summary Создание черновика кометы
      * @request POST:/comets
      * @secure
      */
@@ -341,12 +335,12 @@ export class Api<
          * Изображение: jpeg, png, webp, gif до 10 МБ
          * @format binary
          */
-        comet_photo: File;
+        comet_photo?: File;
         /**
          * Видео: mp4, webm до 50 МБ
          * @format binary
          */
-        comet_video: File;
+        comet_video?: File;
       },
       params: RequestParams = {},
     ) =>
@@ -445,7 +439,7 @@ export class Api<
       }),
 
     /**
-     * @description Переводит свой черновик в статус «опубликован», заполняет описание и поля по теме.
+     * @description Публикует свой черновик с описанием и параметрами орбиты. Фото и видео можно заменить независимо. Поддерживается и JSON с текстовыми полями, если файлы не меняются.
      *
      * @tags Кометы
      * @name PublishUpdate
@@ -455,15 +449,26 @@ export class Api<
      */
     publishUpdate: (
       id: number,
-      comet: ApiPublishCometRequest,
+      data: {
+        /** Описание кометы */
+        comet_description: string;
+        /** Период обращения, лет */
+        orbital_period: number;
+        /** Эксцентриситет */
+        orbit_eccentricity: number;
+        /** Новое фото кометы */
+        comet_photo?: File;
+        /** Новое видео кометы */
+        comet_video?: File;
+      },
       params: RequestParams = {},
     ) =>
       this.request<ApiCometResponse, ApiMessageResponse>({
         path: `/comets/${id}/publish`,
         method: "PUT",
-        body: comet,
+        body: data,
         secure: true,
-        type: ContentType.Json,
+        type: ContentType.FormData,
         format: "json",
         ...params,
       }),

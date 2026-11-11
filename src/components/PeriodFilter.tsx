@@ -58,8 +58,6 @@ const appliedText = (from?: number, to?: number): string => {
   return 'все'
 }
 
-// Фильтр плитки по периоду обращения «от» и «до».
-// Значения слайдеров хранит страница (from/to), применённый фильтр — appliedFrom/appliedTo из адреса.
 export const PeriodFilter: FC<PeriodFilterProps> = ({
   from,
   to,
@@ -73,7 +71,7 @@ export const PeriodFilter: FC<PeriodFilterProps> = ({
   onSubmit,
   onReset,
 }) => {
-  const isFiltered = appliedFrom !== undefined || appliedTo !== undefined
+  const canReset = appliedFrom !== undefined || appliedTo !== undefined || from !== min || to !== max
 
   return (
     <Form
@@ -101,7 +99,7 @@ export const PeriodFilter: FC<PeriodFilterProps> = ({
         <Button className="button" type="submit" disabled={loading}>
           Показать
         </Button>
-        {isFiltered && (
+        {canReset && (
           <Button className="button button--secondary" variant="light" disabled={loading} onClick={onReset}>
             Сбросить
           </Button>

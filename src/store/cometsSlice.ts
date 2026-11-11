@@ -1,4 +1,4 @@
-import { type Dispatch, createAsyncThunk, createSlice } from '@reduxjs/toolkit'
+import { type Dispatch, createAsyncThunk, createSlice, isAnyOf } from '@reduxjs/toolkit'
 import { api } from '../api'
 import type { ApiCometFeedResponse } from '../api/Api'
 import { authStorage, errorMessage, httpStatus, isBackendDown } from '../modules/auth'
@@ -19,7 +19,7 @@ interface CometsState {
   isMock: boolean
   // кометы, у которых идёт запрос лайка или удаления, — их кнопки заблокированы
   pendingIds: number[]
-  creating: boolean
+  savingDraft: boolean
 }
 
 const initialState: CometsState = {
@@ -32,7 +32,7 @@ const initialState: CometsState = {
   feedRequestId: null,
   isMock: false,
   pendingIds: [],
-  creating: false,
+  savingDraft: false,
 }
 
 interface ThunkConfig {
@@ -117,45 +117,63 @@ export const deleteComet = createAsyncThunk<number, number, ThunkConfig>(
   },
 )
 
-export interface NewComet {
-  name: string
+interface CometPublication {
+  id: number
   description: string
   orbitalPeriod: number
   orbitEccentricity: number
-  photo: File
-  video: File
+  photo: File | null
+  video: File | null
 }
 
-// Добавление кометы в два запроса, как в API:
-// POST /api/comets — черновик с названием, фото и видео (файлы попадают в Minio),
-// PUT /api/comets/{id}/publish — описание, период, эксцентриситет и публикация.
-// Если черновик уже есть (409, например прошлая попытка прервалась), публикуется он.
-export const createComet = createAsyncThunk<Comet, NewComet, ThunkConfig>(
-  'comets/createComet',
-  async (form, { dispatch, rejectWithValue }) => {
+export const getCometDraft = createAsyncThunk<Comet | null, void, ThunkConfig>(
+  'comets/getCometDraft',
+  async (_, { dispatch, rejectWithValue, signal }) => {
     try {
-      let draftId: number
+      const { data } = await api.comets.draftList({ signal })
+      return fromApi(data)
+    } catch (error) {
+      if (httpStatus(error) === 404) return null
+      handleUnauthorized(error, dispatch)
+      return rejectWithValue(errorMessage(error, 'Не удалось загрузить черновик'))
+    }
+  },
+)
+
+export const createCometDraft = createAsyncThunk<Comet, string, ThunkConfig>(
+  'comets/createCometDraft',
+  async (name, { dispatch, rejectWithValue }) => {
+    try {
       try {
-        const { data } = await api.comets.cometsCreate({
-          comet_name: form.name,
-          comet_photo: form.photo,
-          comet_video: form.video,
-        })
-        draftId = data.id ?? 0
+        const { data } = await api.comets.cometsCreate({ comet_name: name })
+        return fromApi(data)
       } catch (error) {
         if (httpStatus(error) !== 409) throw error
         const { data } = await api.comets.draftList()
-        draftId = data.id ?? 0
+        return fromApi(data)
       }
-      const { data } = await api.comets.publishUpdate(draftId, {
+    } catch (error) {
+      handleUnauthorized(error, dispatch)
+      return rejectWithValue(errorMessage(error, 'Не удалось создать черновик'))
+    }
+  },
+)
+
+export const publishComet = createAsyncThunk<Comet, CometPublication, ThunkConfig>(
+  'comets/publishComet',
+  async (form, { dispatch, rejectWithValue }) => {
+    try {
+      const { data } = await api.comets.publishUpdate(form.id, {
         comet_description: form.description,
         orbital_period: form.orbitalPeriod,
         orbit_eccentricity: form.orbitEccentricity,
+        ...(form.photo && { comet_photo: form.photo }),
+        ...(form.video && { comet_video: form.video }),
       })
       return fromApi(data)
     } catch (error) {
       handleUnauthorized(error, dispatch)
-      return rejectWithValue(errorMessage(error, 'Не удалось добавить комету'))
+      return rejectWithValue(errorMessage(error, 'Не удалось опубликовать комету'))
     }
   },
 )
@@ -232,15 +250,15 @@ const cometsSlice = createSlice({
         removePending(state, action.meta.arg)
       })
 
-      .addCase(createComet.pending, (state) => {
-        state.creating = true
+      .addMatcher(isAnyOf(createCometDraft.pending, publishComet.pending), (state) => {
+        state.savingDraft = true
       })
-      .addCase(createComet.fulfilled, (state) => {
-        state.creating = false
-      })
-      .addCase(createComet.rejected, (state) => {
-        state.creating = false
-      })
+      .addMatcher(
+        isAnyOf(createCometDraft.fulfilled, createCometDraft.rejected, publishComet.fulfilled, publishComet.rejected),
+        (state) => {
+          state.savingDraft = false
+        },
+      )
   },
 })
 
