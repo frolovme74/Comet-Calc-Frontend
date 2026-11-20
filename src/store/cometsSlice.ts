@@ -1,4 +1,4 @@
-import { type Dispatch, createAsyncThunk, createSlice, isAnyOf } from '@reduxjs/toolkit'
+import { type Dispatch, type PayloadAction, createAsyncThunk, createSlice, isAnyOf } from '@reduxjs/toolkit'
 import { api } from '../api'
 import type { ApiCometFeedResponse } from '../api/Api'
 import { authStorage, errorMessage, httpStatus, isBackendDown } from '../modules/auth'
@@ -20,6 +20,14 @@ interface CometsState {
   // кометы, у которых идёт запрос лайка или удаления, — их кнопки заблокированы
   pendingIds: number[]
   savingDraft: boolean
+  draftName: string
+  draftDetails: { id: number; fields: Partial<DraftDetails> } | null
+}
+
+interface DraftDetails {
+  description: string
+  period: string
+  eccentricity: string
 }
 
 const initialState: CometsState = {
@@ -33,6 +41,8 @@ const initialState: CometsState = {
   isMock: false,
   pendingIds: [],
   savingDraft: false,
+  draftName: '',
+  draftDetails: null,
 }
 
 interface ThunkConfig {
@@ -51,13 +61,13 @@ const handleUnauthorized = (error: unknown, dispatch: Dispatch) => {
 // Ключ ленты: какой адрес (id и признак next) загружен в state.feed
 export const feedKeyOf = (id?: number, next = false) => `${id ?? ''}-${next}`
 
-// GET /api/comets — фильтр берётся из store (filterSlice), для главной — без фильтра
+// GET /api/comets — фильтр берётся из store (filterSlice)
 export const fetchComets = createAsyncThunk<
   { comets: Comet[]; isMock: boolean },
-  { ignoreFilter?: boolean } | undefined,
+  void,
   ThunkConfig
->('comets/fetchComets', async (options, { getState, rejectWithValue }) => {
-  const { from, to } = options?.ignoreFilter ? {} : getState().filter
+>('comets/fetchComets', async (_, { getState, rejectWithValue }) => {
+  const { from, to } = getState().filter
   const query = { min_orbital_period: from, max_orbital_period: to }
   try {
     const { data } = await api.comets.cometsList(query)
@@ -122,8 +132,6 @@ interface CometPublication {
   description: string
   orbitalPeriod: number
   orbitEccentricity: number
-  photo: File | null
-  video: File | null
 }
 
 export const getCometDraft = createAsyncThunk<Comet | null, void, ThunkConfig>(
@@ -140,12 +148,18 @@ export const getCometDraft = createAsyncThunk<Comet | null, void, ThunkConfig>(
   },
 )
 
-export const createCometDraft = createAsyncThunk<Comet, string, ThunkConfig>(
+export const createCometDraft = createAsyncThunk<
+  Comet,
+  { name: string; photo: File; video: File },
+  ThunkConfig
+>(
   'comets/createCometDraft',
-  async (name, { dispatch, rejectWithValue }) => {
+  async ({ name, photo, video }, { dispatch, rejectWithValue }) => {
     try {
       try {
-        const { data } = await api.comets.cometsCreate({ comet_name: name })
+        const { data } = await api.comets.cometsCreate({
+          comet_name: name, comet_photo: photo, comet_video: video,
+        })
         return fromApi(data)
       } catch (error) {
         if (httpStatus(error) !== 409) throw error
@@ -167,8 +181,6 @@ export const publishComet = createAsyncThunk<Comet, CometPublication, ThunkConfi
         comet_description: form.description,
         orbital_period: form.orbitalPeriod,
         orbit_eccentricity: form.orbitEccentricity,
-        ...(form.photo && { comet_photo: form.photo }),
-        ...(form.video && { comet_video: form.video }),
       })
       return fromApi(data)
     } catch (error) {
@@ -185,7 +197,16 @@ const removePending = (state: CometsState, id: number) => {
 const cometsSlice = createSlice({
   name: 'comets',
   initialState,
-  reducers: {},
+  reducers: {
+    changeDraftName(state, action: PayloadAction<string>) {
+      state.draftName = action.payload
+    },
+    changeDraftDetails(state, action: PayloadAction<{ id: number; changes: Partial<DraftDetails> }>) {
+      const { id, changes } = action.payload
+      if (state.draftDetails?.id !== id) state.draftDetails = { id, fields: {} }
+      Object.assign(state.draftDetails.fields, changes)
+    },
+  },
   extraReducers: (builder) => {
     builder
       // Ответ применяется, только если это последний запрос (фильтр могли сменить, пока шёл прошлый)
@@ -250,6 +271,16 @@ const cometsSlice = createSlice({
         removePending(state, action.meta.arg)
       })
 
+      .addCase(createCometDraft.fulfilled, (state) => {
+        state.draftName = ''
+      })
+      .addCase(publishComet.fulfilled, (state, action) => {
+        if (state.draftDetails?.id === action.meta.arg.id) state.draftDetails = null
+      })
+      .addCase(clearUser, (state) => {
+        state.draftName = ''
+        state.draftDetails = null
+      })
       .addMatcher(isAnyOf(createCometDraft.pending, publishComet.pending), (state) => {
         state.savingDraft = true
       })
@@ -262,4 +293,5 @@ const cometsSlice = createSlice({
   },
 })
 
+export const { changeDraftName, changeDraftDetails } = cometsSlice.actions
 export default cometsSlice.reducer

@@ -3,42 +3,31 @@ import { Alert, Button, Form, Spinner } from 'react-bootstrap'
 import { Navigate, useNavigate } from 'react-router-dom'
 import { CometPhoto } from '../components/CometMedia'
 import type { Comet } from '../modules/cometsApi'
-import { DEFAULT_VIDEO, useMediaSrc } from '../modules/media'
+import { DEFAULT_PHOTO, DEFAULT_VIDEO, useMediaSrc } from '../modules/media'
 import { ROUTES } from '../Routes'
-import { createCometDraft, getCometDraft, publishComet } from '../store/cometsSlice'
+import { changeDraftDetails, changeDraftName, createCometDraft, getCometDraft, publishComet } from '../store/cometsSlice'
 import { useAppDispatch, useAppSelector } from '../store/hooks'
 
-// Ограничения — как у веб-сервиса (POST /api/comets, PUT /api/comets/{id}/publish)
 const PHOTO_TYPES = 'image/jpeg,image/png,image/webp,image/gif'
 const VIDEO_TYPES = 'video/mp4,video/webm'
 
-interface DraftFields {
-  description: string
-  period: string
-  eccentricity: string
-  photo: File | null
-  video: File | null
-}
-
-export interface DraftEdits {
-  id: number
-  fields: Partial<DraftFields>
+export interface CometFiles {
+  photo?: File
+  video?: File
 }
 
 interface AddPageProps {
-  draftEdits: DraftEdits | null
-  onDraftEdit: (id: number, changes: DraftEdits['fields']) => void
-  onDraftPublished: (id: number) => void
+  files: CometFiles
+  onFilesChange: (files: CometFiles) => void
 }
 
-export const AddPage: FC<AddPageProps> = ({ draftEdits, onDraftEdit, onDraftPublished }) => {
+export const AddPage: FC<AddPageProps> = ({ files, onFilesChange }) => {
   const dispatch = useAppDispatch()
   const isAuthenticated = useAppSelector((state) => state.user.isAuthenticated)
-  const saving = useAppSelector((state) => state.comets.savingDraft)
+  const { savingDraft: saving, draftName } = useAppSelector((state) => state.comets)
   const [draft, setDraft] = useState<Comet | null>()
   const [loadError, setLoadError] = useState('')
   const [loadAttempt, setLoadAttempt] = useState(0)
-  const [name, setName] = useState('')
   const [error, setError] = useState('')
 
   useEffect(() => {
@@ -46,27 +35,29 @@ export const AddPage: FC<AddPageProps> = ({ draftEdits, onDraftEdit, onDraftPubl
     const request = dispatch(getCometDraft())
     request.then((result) => {
       if (getCometDraft.fulfilled.match(result)) setDraft(result.payload)
-      else if (!result.meta.aborted) setLoadError(result.payload ?? 'Не удалось загрузить черновик')
+      else if (!result.meta.aborted) setLoadError(result.payload ?? 'Не удалось загрузить карточку')
     })
     return () => request.abort()
   }, [dispatch, isAuthenticated, loadAttempt])
 
   if (!isAuthenticated) return <Navigate to={ROUTES.LOGIN} replace />
 
-  const handleCreate = async (event: FormEvent) => {
+  const handleNext = async (event: FormEvent) => {
     event.preventDefault()
-    if (!name.trim() || saving) return
+    const { photo, video } = files
+    if (!draftName.trim() || !photo || !video || saving) return
     setError('')
-    const result = await dispatch(createCometDraft(name.trim()))
-    if (createCometDraft.fulfilled.match(result)) setDraft(result.payload)
-    else setError(result.payload ?? 'Не удалось создать черновик')
+    const result = await dispatch(createCometDraft({ name: draftName.trim(), photo, video }))
+    if (createCometDraft.fulfilled.match(result)) {
+      onFilesChange({})
+      setDraft(result.payload)
+    } else {
+      setError(result.payload ?? 'Не удалось сохранить карточку')
+    }
   }
 
   return (
     <main className="page">
-      <header className="page__header">
-        <h1 className="page__title">{draft ? 'Черновик кометы' : 'Новая комета'}</h1>
-      </header>
       {loadError ? (
         <Alert variant="danger">
           <p>{loadError}</p>
@@ -77,34 +68,32 @@ export const AddPage: FC<AddPageProps> = ({ draftEdits, onDraftEdit, onDraftPubl
         </Alert>
       ) : draft === undefined ? (
         <div className="loader">
-          <Spinner animation="border" role="status" aria-label="Загрузка черновика" />
+          <Spinner animation="border" role="status" aria-label="Загрузка карточки" />
         </div>
       ) : draft ? (
-        <DraftForm
-          key={draft.id}
-          draft={draft}
-          saving={saving}
-          fields={draftEdits?.id === draft.id ? draftEdits.fields : {}}
-          onEdit={(changes) => onDraftEdit(draft.id, changes)}
-          onPublished={() => onDraftPublished(draft.id)}
-        />
+        <DraftForm key={draft.id} draft={draft} saving={saving} />
       ) : (
-        <Form className="form" onSubmit={handleCreate}>
+        <Form className="comet-form" onSubmit={handleNext} aria-label="Добавление кометы">
           <fieldset disabled={saving}>
-            <Form.Group className="form__field" controlId="comet_name">
-              <Form.Label>Название</Form.Label>
-              <Form.Control
-                className="form__input"
-                value={name}
-                maxLength={100}
-                placeholder="например, 2P/Энке"
-                onChange={(event) => setName(event.target.value)}
-                required
-              />
-            </Form.Group>
             {error && <Alert variant="danger" className="form__error">{error}</Alert>}
-            <Button className="button button--wide" type="submit" disabled={!name.trim()}>
-              {saving ? <Spinner animation="border" size="sm" /> : 'Создать черновик'}
+            <section className="comet-form__card">
+              <MediaField kind="video" file={files.video} onSelect={(video) => onFilesChange({ ...files, video })} />
+              <MediaField kind="photo" file={files.photo} onSelect={(photo) => onFilesChange({ ...files, photo })} />
+            </section>
+            <section className="comet-form__card">
+              <Form.Group className="comet-field" controlId="comet_name">
+                <Form.Label>Название</Form.Label>
+                <Form.Control
+                  value={draftName}
+                  maxLength={100}
+                  placeholder="Например, 13P/Ольберса"
+                  onChange={(event) => dispatch(changeDraftName(event.target.value))}
+                  required
+                />
+              </Form.Group>
+            </section>
+            <Button className="button button--wide" type="submit">
+              {saving ? <Spinner animation="border" size="sm" aria-label="Сохранение" /> : 'Далее'}
             </Button>
           </fieldset>
         </Form>
@@ -113,164 +102,156 @@ export const AddPage: FC<AddPageProps> = ({ draftEdits, onDraftEdit, onDraftPubl
   )
 }
 
-const useFilePreview = (file: File | null) => useCallback((element: HTMLImageElement | HTMLVideoElement | null) => {
-  if (!element || !file) return
-  const url = URL.createObjectURL(file)
-  element.src = url
-  return () => URL.revokeObjectURL(url)
-}, [file])
-
-// Восстанавливаем File в новом input после возврата на страницу.
-const restoreSelectedFile = (input: HTMLInputElement | null, file: File | null) => {
-  if (!input || !file || input.files?.[0] === file) return
-  const transfer = new DataTransfer()
-  transfer.items.add(file)
-  input.files = transfer.files
+interface MediaFieldProps {
+  kind: 'photo' | 'video'
+  file?: File
+  url?: string
+  poster?: string
+  onSelect?: (file?: File) => void
 }
 
-interface DraftFormProps {
-  draft: Comet
-  saving: boolean
-  fields: DraftEdits['fields']
-  onEdit: (changes: DraftEdits['fields']) => void
-  onPublished: () => void
+const MediaField: FC<MediaFieldProps> = ({ kind, file, url = '', poster = '', onSelect }) => {
+  const video = kind === 'video'
+  const label = video ? 'Видео' : 'Фото'
+  const stored = useMediaSrc(url, video ? DEFAULT_VIDEO : DEFAULT_PHOTO)
+  const posterMedia = useMediaSrc(poster, DEFAULT_PHOTO)
+  const preview = useCallback((element: HTMLImageElement | HTMLVideoElement | null) => {
+    if (!element || !file) return
+    const objectUrl = URL.createObjectURL(file)
+    element.src = objectUrl
+    return () => URL.revokeObjectURL(objectUrl)
+  }, [file])
+  const restoreFile = useCallback((input: HTMLInputElement | null) => {
+    if (!input || !file || input.files?.[0] === file) return
+    const transfer = new DataTransfer()
+    transfer.items.add(file)
+    input.files = transfer.files
+  }, [file])
+
+  const content = (
+    <>
+      {video ? (
+        <video
+          key={file ? 'local' : stored.src}
+          className="comet-media__preview"
+          ref={preview}
+          src={file ? undefined : stored.src}
+          poster={posterMedia.src}
+          onError={file ? undefined : stored.onError}
+          muted
+          loop
+          playsInline
+          autoPlay
+        />
+      ) : file ? (
+        <img className="comet-media__preview comet-media__preview--photo" ref={preview} alt="Предпросмотр фото кометы" />
+      ) : (
+        <CometPhoto className="comet-media__preview comet-media__preview--photo" url={url} alt="Фото кометы" />
+      )}
+      <span className="comet-media__text">
+        <span className="comet-field__label">{label}</span>
+        {onSelect && <span className="btn button button--secondary">Выбрать файл</span>}
+      </span>
+    </>
+  )
+  if (!onSelect) return <div className="comet-media">{content}</div>
+  return (
+    <label className="comet-media comet-media--select">
+      {content}
+      <input
+        className="visually-hidden"
+        id={`comet_${kind}`}
+        aria-label={label}
+        type="file"
+        accept={video ? VIDEO_TYPES : PHOTO_TYPES}
+        ref={restoreFile}
+        onChange={(event) => onSelect(event.target.files?.[0])}
+        required
+      />
+    </label>
+  )
 }
 
-const DraftForm: FC<DraftFormProps> = ({ draft, saving, fields, onEdit, onPublished }) => {
+const DraftForm: FC<{ draft: Comet; saving: boolean }> = ({ draft, saving }) => {
   const dispatch = useAppDispatch()
   const navigate = useNavigate()
-  const { description = '', period = '', eccentricity = '', photo = null, video = null } = fields
+  const edits = useAppSelector((state) => state.comets.draftDetails)
+  const fields = edits?.id === draft.id ? edits.fields : {}
+  const description = fields.description ?? draft.comet_description
+  const period = fields.period ?? draft.orbital_period?.toString() ?? ''
+  const eccentricity = fields.eccentricity ?? draft.orbit_eccentricity?.toString() ?? ''
   const [error, setError] = useState('')
 
-  const photoPreview = useFilePreview(photo)
-  const videoPreview = useFilePreview(video)
-  const storedVideo = useMediaSrc(draft.comet_video_url, DEFAULT_VIDEO)
-
-  // Число с запятой или точкой
-  const toNumber = (value: string) => Number(value.replace(',', '.'))
-  const periodValue = toNumber(period)
-  const eccentricityValue = toNumber(eccentricity)
-  const periodInvalid = period !== '' && !(periodValue > 0)
+  const periodValue = Number(period.replace(',', '.'))
+  const eccentricityValue = Number(eccentricity.replace(',', '.'))
+  const periodInvalid = period !== '' && !(periodValue > 0 && periodValue <= 999999.99)
   const eccentricityInvalid = eccentricity !== '' && !(eccentricityValue >= 0 && eccentricityValue < 1)
 
-  const canSubmit = description.trim() && period.trim() && eccentricity.trim() && !periodInvalid && !eccentricityInvalid
-
-  const handleSubmit = async (event: FormEvent) => {
+  const handlePublish = async (event: FormEvent) => {
     event.preventDefault()
-    if (!canSubmit || saving) return
+    if (!description.trim() || !period.trim() || !eccentricity.trim() || periodInvalid || eccentricityInvalid || saving) return
     setError('')
-    const result = await dispatch(
-      publishComet({
-        id: draft.id,
-        description: description.trim(),
-        orbitalPeriod: periodValue,
-        orbitEccentricity: eccentricityValue,
-        photo,
-        video,
-      }),
-    )
-    if (publishComet.fulfilled.match(result)) {
-      onPublished()
-      navigate(`${ROUTES.FEED}/${result.payload.id}`)
-    } else {
-      setError(result.payload ?? 'Не удалось опубликовать комету')
-    }
+    const result = await dispatch(publishComet({
+      id: draft.id,
+      description: description.trim(),
+      orbitalPeriod: periodValue,
+      orbitEccentricity: eccentricityValue,
+    }))
+    if (publishComet.fulfilled.match(result)) navigate(`${ROUTES.FEED}/${result.payload.id}`)
+    else setError(result.payload ?? 'Не удалось опубликовать комету')
   }
 
   return (
-    <Form className="form" onSubmit={handleSubmit}>
+    <Form className="comet-form" onSubmit={handlePublish} aria-label="Публикация кометы">
       <fieldset disabled={saving}>
-        <Form.Group className="form__field" controlId="comet_name">
-          <Form.Label>Название</Form.Label>
-          <Form.Control
-            className="form__input"
-            value={draft.comet_name}
-            readOnly
-          />
-        </Form.Group>
-
-        <Form.Group className="form__field" controlId="comet_description">
-          <Form.Label>Описание</Form.Label>
-          <Form.Control
-            className="form__input"
-            as="textarea"
-            rows={4}
-            maxLength={500}
-            value={description}
-            onChange={(event) => onEdit({ description: event.target.value })}
-            required
-          />
-        </Form.Group>
-
-        <div className="form__row">
-          <Form.Group className="form__field" controlId="orbital_period">
-            <Form.Label>Период, лет</Form.Label>
+        {error && <Alert variant="danger" className="form__error">{error}</Alert>}
+        <section className="comet-form__card">
+          <MediaField kind="video" url={draft.comet_video_url} poster={draft.comet_photo_url} />
+          <MediaField kind="photo" url={draft.comet_photo_url} />
+        </section>
+        <section className="comet-form__card">
+          <Form.Group className="comet-field" controlId="comet_name">
+            <Form.Label>Название</Form.Label>
+            <Form.Control value={draft.comet_name} readOnly />
+          </Form.Group>
+          <Form.Group className="comet-field" controlId="comet_description">
+            <Form.Label>Краткое описание</Form.Label>
             <Form.Control
-              className="form__input"
+              as="textarea"
+              rows={4}
+              maxLength={500}
+              value={description}
+              onChange={(event) => dispatch(changeDraftDetails({ id: draft.id, changes: { description: event.target.value } }))}
+              required
+            />
+          </Form.Group>
+        </section>
+        <section className="comet-form__card">
+          <Form.Group className="comet-field" controlId="orbital_period">
+            <Form.Label>Период обращения, лет</Form.Label>
+            <Form.Control
               inputMode="decimal"
               value={period}
-              placeholder="3,31"
               isInvalid={periodInvalid}
-              onChange={(event) => onEdit({ period: event.target.value })}
+              onChange={(event) => dispatch(changeDraftDetails({ id: draft.id, changes: { period: event.target.value } }))}
               required
             />
-            <Form.Control.Feedback type="invalid">больше 0</Form.Control.Feedback>
+            <Form.Control.Feedback type="invalid">Введите число больше 0, до 999999,99</Form.Control.Feedback>
           </Form.Group>
-          <Form.Group className="form__field" controlId="orbit_eccentricity">
-            <Form.Label>Эксцентриситет</Form.Label>
+          <Form.Group className="comet-field" controlId="orbit_eccentricity">
+            <Form.Label>Эксцентриситет орбиты</Form.Label>
             <Form.Control
-              className="form__input"
               inputMode="decimal"
               value={eccentricity}
-              placeholder="0,848"
               isInvalid={eccentricityInvalid}
-              onChange={(event) => onEdit({ eccentricity: event.target.value })}
+              onChange={(event) => dispatch(changeDraftDetails({ id: draft.id, changes: { eccentricity: event.target.value } }))}
               required
             />
-            <Form.Control.Feedback type="invalid">от 0 до 1</Form.Control.Feedback>
+            <Form.Control.Feedback type="invalid">Введите число от 0 до 0,999</Form.Control.Feedback>
           </Form.Group>
-        </div>
-
-        <Form.Group className="form__field" controlId="comet_photo">
-          <Form.Label>Фото (jpeg, png, webp, gif до 10 МБ)</Form.Label>
-          <Form.Control
-            className="form__input"
-            type="file"
-            accept={PHOTO_TYPES}
-            ref={(input) => restoreSelectedFile(input as HTMLInputElement | null, photo)}
-            onChange={(event) => onEdit({ photo: (event.target as HTMLInputElement).files?.[0] ?? null })}
-          />
-          {photo ? (
-            <img className="form__media-preview" ref={photoPreview} alt="Предпросмотр фото кометы" />
-          ) : (
-            <CometPhoto className="form__media-preview" url={draft.comet_photo_url} alt="Текущее фото кометы" />
-          )}
-        </Form.Group>
-
-        <Form.Group className="form__field" controlId="comet_video">
-          <Form.Label>Видео (mp4, webm до 50 МБ)</Form.Label>
-          <Form.Control
-            className="form__input"
-            type="file"
-            accept={VIDEO_TYPES}
-            ref={(input) => restoreSelectedFile(input as HTMLInputElement | null, video)}
-            onChange={(event) => onEdit({ video: (event.target as HTMLInputElement).files?.[0] ?? null })}
-          />
-          <video
-            className="form__media-preview"
-            ref={videoPreview}
-            src={video ? undefined : storedVideo.src}
-            onError={video ? undefined : storedVideo.onError}
-            controls
-            preload="metadata"
-            aria-label="Предпросмотр видео кометы"
-          />
-        </Form.Group>
-
-        {error && <Alert variant="danger" className="form__error">{error}</Alert>}
-
-        <Button className="button button--wide" type="submit" disabled={!canSubmit}>
-          {saving ? <Spinner animation="border" size="sm" /> : 'Опубликовать'}
+        </section>
+        <Button className="button button--wide" type="submit" disabled={periodInvalid || eccentricityInvalid}>
+          {saving ? <Spinner animation="border" size="sm" aria-label="Публикация" /> : 'Опубликовать'}
         </Button>
       </fieldset>
     </Form>
