@@ -1,5 +1,6 @@
 import { type PayloadAction, createSlice } from '@reduxjs/toolkit'
 import { authStorage } from '../modules/auth'
+import { isPages } from '../modules/deployment'
 
 // Пользователь. Запросы входа и выхода делаются через axios в компонентах,
 // результат передаётся сюда вручную (setUser / clearUser) — без thunk.
@@ -9,7 +10,7 @@ interface UserState {
 }
 
 // После F5 пользователь восстанавливается из localStorage
-const savedLogin = authStorage.getToken() ? authStorage.getLogin() : null
+const savedLogin = !isPages && authStorage.getToken() ? authStorage.getLogin() : null
 
 const initialState: UserState = {
   login: savedLogin,

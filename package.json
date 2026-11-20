@@ -6,6 +6,9 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "build:pages": "tsc -b && vite build --mode pages && node scripts/build-pwa.mjs",
+    "serve:https": "node scripts/serve-https.mjs",
+    "cert:https": "node scripts/create-local-cert.mjs",
     "lint": "oxlint",
     "preview": "vite preview",
     "generate-api": "node scripts/generate-api.mjs"

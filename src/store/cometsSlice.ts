@@ -3,6 +3,7 @@ import { api } from '../api'
 import type { ApiCometFeedResponse } from '../api/Api'
 import { authStorage, errorMessage, httpStatus, isBackendDown } from '../modules/auth'
 import { type Comet, fromApi, getMockCometFeed, getMockComets } from '../modules/cometsApi'
+import { isPages } from '../modules/deployment'
 import type { RootState } from '.'
 import { clearUser } from './userSlice'
 
@@ -69,6 +70,7 @@ export const fetchComets = createAsyncThunk<
 >('comets/fetchComets', async (_, { getState, rejectWithValue }) => {
   const { from, to } = getState().filter
   const query = { min_orbital_period: from, max_orbital_period: to }
+  if (isPages) return { comets: getMockComets(query), isMock: true }
   try {
     const { data } = await api.comets.cometsList(query)
     return { comets: data.map(fromApi), isMock: false }
@@ -84,6 +86,7 @@ export const fetchFeedComet = createAsyncThunk<
   { id?: number; next?: boolean },
   ThunkConfig
 >('comets/fetchFeedComet', async ({ id, next = false }, { rejectWithValue }) => {
+  if (isPages) return { comet: getMockCometFeed(id, next), isMock: true }
   try {
     const { data } =
       id === undefined

@@ -6,7 +6,8 @@ const API_TARGET = process.env.API_TARGET ?? 'http://localhost:8080'
 const S3_TARGET = process.env.S3_TARGET ?? 'http://localhost:9000'
 
 // https://vite.dev/config/
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
+  base: mode === 'pages' ? (process.env.PAGES_BASE ?? '/Comet-Calc-Frontend/') : '/',
   plugins: [react()],
   server: {
     port: 3000,
@@ -24,4 +25,4 @@ export default defineConfig({
       },
     },
   },
-})
+}))

@@ -76,10 +76,10 @@ html, body, #root {
 a { color: var(--color-accent); text-decoration: none; }
 a:hover { color: var(--color-hover); }
 
-/* Оболочка: экран телефона по центру окна */
+/* Оболочка ограничивает ширину только на больших экранах. */
 .app {
     position: relative;
-    max-width: 430px;
+    max-width: 1280px;
     height: 100vh;
     height: 100dvh;
     margin: 0 auto;
@@ -91,8 +91,8 @@ a:hover { color: var(--color-hover); }
 
 /* Нижняя панель вкладок (React-Bootstrap Navbar) */
 .tabbar {
-    flex: 0 0 var(--tabbar-h);
-    padding: 0;
+    flex: 0 0 calc(var(--tabbar-h) + env(safe-area-inset-bottom));
+    padding: 0 0 env(safe-area-inset-bottom);
     background: var(--color-nav);
 }
 
@@ -100,6 +100,8 @@ a:hover { color: var(--color-hover); }
     display: grid;
     grid-template-columns: repeat(4, 1fr);
     width: 100%;
+    max-width: 640px;
+    margin-inline: auto;
     height: 100%;
 }
 
@@ -419,7 +421,7 @@ a:hover { color: var(--color-hover); }
 /* Плитка */
 .tiles {
     display: grid;
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 10px;
 }
 
@@ -622,3 +624,69 @@ a:hover { color: var(--color-hover); }
 .comet-field textarea { resize: vertical; }
 
 .form__error.alert { padding: 8px 12px; font-size: 14px; }
+
+@media (max-width: 359px) {
+    .tiles { grid-template-columns: minmax(0, 1fr); }
+    .tabbar .tabbar__item { font-size: 13px; }
+}
+
+@media (min-width: 640px) {
+    .page { padding: 24px; }
+    .tiles {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 16px;
+    }
+
+    .tile__image { aspect-ratio: 4 / 3; }
+    .page--add { width: min(100%, 960px); margin-inline: auto; }
+    .comet-form__media {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 16px;
+    }
+
+    .comet-form__media .comet-media + .comet-media { margin-top: 0; }
+    .comet-form__media .comet-media__preview { width: 112px; flex-basis: 112px; }
+}
+
+@media (min-width: 768px) {
+    .feed:not(.feed--loading) {
+        display: grid;
+        grid-template: "video info" auto "video actions" 1fr / minmax(0, 2fr) minmax(260px, 1fr);
+        gap: 18px 24px;
+        min-height: 0;
+        padding: 24px;
+        overflow-y: auto;
+        background: var(--color-bg);
+    }
+
+    .feed__video {
+        position: static;
+        grid-area: video;
+        min-height: 0;
+        object-fit: contain;
+        border-radius: var(--radius);
+        background: #000;
+    }
+
+    .feed__shade { display: none; }
+    .feed__notice { left: 36px; right: auto; top: 36px; }
+    .feed__info { position: static; grid-area: info; }
+    .feed__title { font-size: 24px; }
+    .feed__side {
+        position: static;
+        grid-area: actions;
+        align-self: start;
+        flex-flow: row wrap;
+        width: auto;
+    }
+
+    .feed__stat { width: 106px; }
+}
+
+@media (min-width: 1080px) {
+    .tiles {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 20px;
+    }
+}

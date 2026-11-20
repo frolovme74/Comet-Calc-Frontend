@@ -1,8 +1,9 @@
 import { useState } from 'react'
+import { publicAsset } from './deployment'
 
 // Фото и видео по умолчанию лежат в самом проекте (public/)
-export const DEFAULT_PHOTO = '/DefaultComet.jpg'
-export const DEFAULT_VIDEO = '/DefaultComet.mp4'
+export const DEFAULT_PHOTO = publicAsset('DefaultComet.jpg')
+export const DEFAULT_VIDEO = publicAsset('DefaultComet.mp4')
 
 // Пользовательский хук: возвращает адрес файла или адрес по умолчанию,
 // если поле в комете пустое или файл по ссылке не загрузился (событие onError).

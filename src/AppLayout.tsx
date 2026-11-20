@@ -2,7 +2,7 @@ import type { FC } from 'react'
 import { Outlet } from 'react-router-dom'
 import { TabBar } from './components/TabBar'
 
-// Общая оболочка: узкая колонка как экран телефона, контент страницы и нижняя панель вкладок
+// Общая оболочка со страницей и нижней панелью вкладок.
 export const AppLayout: FC = () => (
   <div className="app">
     <Outlet />

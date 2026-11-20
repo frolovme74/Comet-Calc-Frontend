@@ -1,17 +1,20 @@
 import type { Comet } from './cometsApi'
+import { isPages, publicAsset } from './deployment'
 
 // Mock-коллекция комет: те же данные, что в db/seed.sql бэкенда, в формате ответа API.
-// Ссылки на фото и видео ведут в Minio. У 103P/Хартли поля фото и видео пустые,
-// у 55P/Темпеля — Туттля пустое видео: для них показываются фото и видео по умолчанию.
-// Через прокси Vite (/s3 → Minio http://localhost:9000), как и адреса из ответов API
+// На Pages медиа опубликованных комет лежат в сборке, в локальном режиме ссылки ведут в MinIO.
 const MINIO_URL = '/s3/comets'
 
-const media = (name: string) => (name ? `${MINIO_URL}/${name}` : '')
+const media = (name: string, published: boolean) => {
+  if (!name) return ''
+  if (!isPages) return `${MINIO_URL}/${name}`
+  return published ? publicAsset(`mock-media/${name}`) : ''
+}
 
 const comet = (data: Omit<Comet, 'comet_photo_url' | 'comet_video_url' | 'is_mine' | 'is_liked'>): Comet => ({
   ...data,
-  comet_photo_url: media(data.comet_photo),
-  comet_video_url: media(data.comet_video),
+  comet_photo_url: media(data.comet_photo, data.comet_status === 'published'),
+  comet_video_url: media(data.comet_video, data.comet_status === 'published'),
   is_mine: 0,
   is_liked: 0,
 })

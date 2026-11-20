@@ -57,7 +57,7 @@ export const AddPage: FC<AddPageProps> = ({ files, onFilesChange }) => {
   }
 
   return (
-    <main className="page">
+    <main className="page page--add">
       {loadError ? (
         <Alert variant="danger">
           <p>{loadError}</p>
@@ -76,7 +76,7 @@ export const AddPage: FC<AddPageProps> = ({ files, onFilesChange }) => {
         <Form className="comet-form" onSubmit={handleNext} aria-label="Добавление кометы">
           <fieldset disabled={saving}>
             {error && <Alert variant="danger" className="form__error">{error}</Alert>}
-            <section className="comet-form__card">
+            <section className="comet-form__card comet-form__media">
               <MediaField kind="video" file={files.video} onSelect={(video) => onFilesChange({ ...files, video })} />
               <MediaField kind="photo" file={files.photo} onSelect={(photo) => onFilesChange({ ...files, photo })} />
             </section>
@@ -205,7 +205,7 @@ const DraftForm: FC<{ draft: Comet; saving: boolean }> = ({ draft, saving }) => 
     <Form className="comet-form" onSubmit={handlePublish} aria-label="Публикация кометы">
       <fieldset disabled={saving}>
         {error && <Alert variant="danger" className="form__error">{error}</Alert>}
-        <section className="comet-form__card">
+        <section className="comet-form__card comet-form__media">
           <MediaField kind="video" url={draft.comet_video_url} poster={draft.comet_photo_url} />
           <MediaField kind="photo" url={draft.comet_photo_url} />
         </section>

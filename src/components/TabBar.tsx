@@ -3,6 +3,7 @@ import { Nav, Navbar, Spinner } from 'react-bootstrap'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { ROUTES, ROUTE_LABELS, type RouteKeyType } from '../Routes'
 import { authStorage, logoutRequest } from '../modules/auth'
+import { isPages } from '../modules/deployment'
 import { useAppDispatch, useAppSelector } from '../store/hooks'
 import { clearUser } from '../store/userSlice'
 
@@ -51,7 +52,7 @@ export const TabBar: FC = () => {
     <Navbar className="tabbar" variant="dark">
       <Nav className="tabbar__nav">
         {TABS.map(({ key, icon, authOnly }) => {
-          const disabled = authOnly && !isAuthenticated
+          const disabled = authOnly && (isPages || !isAuthenticated)
           return (
             <Nav.Link
               key={key}
@@ -60,7 +61,7 @@ export const TabBar: FC = () => {
               disabled={disabled}
               active={pathname.startsWith(ROUTES[key])}
               className="tabbar__item"
-              title={disabled ? 'Доступно после входа' : undefined}
+              title={disabled ? (isPages ? 'Доступно в версии с сервером' : 'Доступно после входа') : undefined}
             >
               <svg viewBox="0 0 24 24" aria-hidden="true">{icon}</svg>
               <span>{ROUTE_LABELS[key]}</span>
@@ -68,7 +69,12 @@ export const TabBar: FC = () => {
           )
         })}
 
-        {isAuthenticated ? (
+        {isPages ? (
+          <Nav.Link as="button" className="tabbar__item" disabled title="Доступно в версии с сервером">
+            <svg viewBox="0 0 24 24" aria-hidden="true">{LOGIN_ICON}</svg>
+            <span>{ROUTE_LABELS.LOGIN}</span>
+          </Nav.Link>
+        ) : isAuthenticated ? (
           <Nav.Link
             as="button"
             className="tabbar__item"
